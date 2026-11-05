@@ -1,0 +1,93 @@
+{
+  "passed": true,
+  "image_id": "0c8ea3209857dfdc52fb0a8a23710169fc18126e0dc9be2fc2f9b69210fb41e9",
+  "source_revision": "098d43f0343af094140d3c92f6e0e22ed8f796da",
+  "modes": {
+    "ar": {
+      "generation_checks": 24,
+      "dual_usb": [
+        {
+          "host": 1,
+          "active_cables": 2,
+          "active_data_rails": 4,
+          "completed_frames": 8736335
+        },
+        {
+          "host": 2,
+          "active_cables": 2,
+          "active_data_rails": 4,
+          "completed_frames": 8736335
+        }
+      ],
+      "native_zero_copy_counters": [
+        {
+          "data_wr_zcopy": 64512,
+          "data_wr_copied": 0,
+          "data_wr_zcopy_fallback": 0,
+          "data_wr_copy_error": 0,
+          "data_wr_path_send_error": 0,
+          "data_wr_retry_exhausted": 0,
+          "data_wr_rnr_retry_exhausted": 0
+        },
+        {
+          "data_wr_zcopy": 64512,
+          "data_wr_copied": 0,
+          "data_wr_zcopy_fallback": 0,
+          "data_wr_copy_error": 0,
+          "data_wr_path_send_error": 0,
+          "data_wr_retry_exhausted": 0,
+          "data_wr_rnr_retry_exhausted": 0
+        }
+      ]
+    },
+    "mtp": {
+      "generation_checks": 24,
+      "dual_usb": [
+        {
+          "host": 1,
+          "active_cables": 2,
+          "active_data_rails": 4,
+          "completed_frames": 8733231
+        },
+        {
+          "host": 2,
+          "active_cables": 2,
+          "active_data_rails": 4,
+          "completed_frames": 8733231
+        }
+      ],
+      "native_zero_copy_counters": [
+        {
+          "data_wr_zcopy": 27940,
+          "data_wr_copied": 0,
+          "data_wr_zcopy_fallback": 0,
+          "data_wr_copy_error": 0,
+          "data_wr_path_send_error": 0,
+          "data_wr_retry_exhausted": 0,
+          "data_wr_rnr_retry_exhausted": 0
+        },
+        {
+          "data_wr_zcopy": 27940,
+          "data_wr_copied": 0,
+          "data_wr_zcopy_fallback": 0,
+          "data_wr_copy_error": 0,
+          "data_wr_path_send_error": 0,
+          "data_wr_retry_exhausted": 0,
+          "data_wr_rnr_retry_exhausted": 0
+        }
+      ]
+    }
+  },
+  "normal_generation_requests": 51,
+  "cancelled_stream_checks": 2,
+  "maximum_fresh_input_tokens": 32768,
+  "configured_context_capacity": 262144,
+  "filled_262144_test": false,
+  "performance_comparison": false,
+  "dedicated_services_restored": true,
+  "cpu_contract_tests": 15,
+  "gpu_operator_tests": 6,
+  "permission_failure_tests": "native disk suite also passed as an unprivileged UID",
+  "pinned_toolchain": "ROCm 10.1 / HIP Clang 24",
+  "kernel_software_unchanged": true
+}
