@@ -1429,7 +1429,48 @@ void TestNewBranchPreservesSharedSourceUnderBytePressure() {
          "the oldest unrelated continuation yields to the shared branch point");
 }
 
+void TestPrefillAlignmentKeepsExactRetriesAndDecodedFrontiers() {
+  using Tokens = std::vector<gufo::server::ContinuationToken>;
+  std::vector<std::size_t> invalidations(1);
+  gufo::server::ContinuationCache cache(
+      1, [&] { return std::make_unique<FakeState>(0, &invalidations); },
+      {.restore =
+           [](gufo::server::ContinuationState& state,
+              const gufo::server::ContinuationSnapshot& snapshot) {
+             dynamic_cast<FakeState&>(state).value =
+                 dynamic_cast<const FakeSnapshot&>(snapshot).value;
+           },
+       .capacity_bytes = [] { return 1024; }},
+      8);
+  cache.set_prefill_alignment(4);
+  auto first = cache.Acquire(Tokens{1, 2, 3});
+  Expect(first.TryReserveSnapshot(sizeof(std::size_t), 3),
+         "reserve exact retry");
+  first.Commit({1, 2, 3}, std::make_unique<FakeSnapshot>(3));
+  Expect(cache.CachedPrefixTokens(Tokens{1, 2, 3, 4}) == 0,
+         "an unaligned prompt snapshot cannot prefill an extension");
+  auto retry = cache.Acquire(Tokens{1, 2, 3});
+  Expect(retry.cache_hit() && retry.cached_tokens() == 3,
+         "an unchanged prompt can restore its unaligned complete snapshot");
+  retry.Invalidate();
+  auto extended = cache.Acquire(Tokens{1, 2, 3, 4});
+  Expect(!extended.cache_hit(), "an extension rejects the unaligned prompt");
+  Expect(extended.TryReserveSnapshot(sizeof(std::size_t), 4),
+         "reserve aligned prefix");
+  extended.Commit({1, 2, 3, 4}, std::make_unique<FakeSnapshot>(4),
+                  {1, 2, 3, 4, 5, 6});
+  auto decoded = cache.Acquire(Tokens{1, 2, 3, 4, 5, 6, 7});
+  Expect(decoded.cache_hit() && decoded.cached_tokens() == 6,
+         "a decoded live frontier may continue off the prefill alignment");
+  decoded.Invalidate();
+  auto fallback = cache.Acquire(Tokens{1, 2, 3, 4, 5, 6, 7});
+  Expect(fallback.cache_hit() && fallback.cached_tokens() == 4,
+         "an aligned prompt snapshot remains a safe fallback");
+  fallback.Invalidate();
+}
+
 int main() {
+  TestPrefillAlignmentKeepsExactRetriesAndDecodedFrontiers();
   TestAppendedImagesReuseOnlyCompatiblePrefixes();
   TestImageIdentityIsolation();
   TestColdMissThenExactExtensionHit();

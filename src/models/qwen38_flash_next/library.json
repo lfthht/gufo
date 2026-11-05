@@ -7,6 +7,7 @@
   "consumers": [
     "gufo",
     "gufo_llm_cli",
-    "gufo_serving"
+    "gufo_serving",
+    "bench_cli_test"
   ]
 }

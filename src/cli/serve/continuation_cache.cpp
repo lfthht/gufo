@@ -84,6 +84,7 @@ struct ContinuationCache::Impl {
   std::size_t state_count{0};
   SnapshotSupport snapshot_support;
   bool optional_copies_displace_idle{false};
+  std::size_t prefill_alignment{1};
   mutable std::mutex mutex;
   std::condition_variable condition;
   std::uint64_t clock{0};
@@ -493,7 +494,10 @@ ContinuationCache::Lease ContinuationCache::Acquire(
     const bool has_fallback =
         stable_prefix_tokens == 0 ||
         std::ranges::any_of(impl_->entries, [&](const auto& entry) {
-          return entry->valid && impl_->SnapshotReusable(entry->snapshot) &&
+          return entry->valid &&
+                 (entry->tokens.size() == prompt.size() ||
+                  entry->tokens.size() % impl_->prefill_alignment == 0) &&
+                 impl_->SnapshotReusable(entry->snapshot) &&
                  (entry->tokens.size() <= stable_prefix_tokens ||
                   (entry->stable_prefix_tokens != 0 &&
                    entry->stable_prefix_tokens <= stable_prefix_tokens)) &&
@@ -516,6 +520,9 @@ ContinuationCache::Lease ContinuationCache::Acquire(
         skip_reason = "unavailable";
       else if (!matches_input(entry.input_identity, entry.tokens.size()))
         skip_reason = "input_identity";
+      else if (impl_->snapshot_mode() && entry.tokens.size() < prompt.size() &&
+               entry.tokens.size() % impl_->prefill_alignment != 0)
+        skip_reason = "prefill_alignment";
       else if (!can_reuse(entry.tokens.size()))
         skip_reason = "stable_prefix_boundary";
       else if (!IsPrefix(entry.tokens, prompt))
@@ -765,6 +772,8 @@ std::size_t ContinuationCache::CachedPrefixTokens(
   for (const auto& entry : impl_->entries) {
     if (entry->valid && (impl_->snapshot_mode() || entry->available) &&
         entry->tokens.size() > longest &&
+        (!impl_->snapshot_mode() || entry->tokens.size() == prompt.size() ||
+         entry->tokens.size() % impl_->prefill_alignment == 0) &&
         matches(entry->tokens, entry->input_identity) &&
         (impl_->snapshot_mode() ? impl_->SnapshotReusable(entry->snapshot)
                                 : impl_->StateReusable(*entry->state)))
@@ -813,6 +822,11 @@ std::size_t ContinuationCache::entry_capacity() const noexcept {
   const std::lock_guard<std::mutex> lock(impl_->mutex);
   return impl_->snapshot_mode() ? impl_->entries.size() - impl_->state_count
                                 : impl_->entries.size();
+}
+
+void ContinuationCache::set_prefill_alignment(std::size_t alignment) noexcept {
+  const std::lock_guard<std::mutex> lock(impl_->mutex);
+  impl_->prefill_alignment = std::max<std::size_t>(1, alignment);
 }
 
 void ContinuationCache::set_optional_copies_displace_idle(

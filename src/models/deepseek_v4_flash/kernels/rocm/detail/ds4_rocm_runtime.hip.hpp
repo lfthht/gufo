@@ -187,6 +187,26 @@ static int hip_tensor_has_f32(const ds4_gpu_tensor *t, uint64_t elems) {
     return hip_tensor_has_elems(t, elems, sizeof(float));
 }
 
+/* A Q8_0 activation as the narrow GEMVs consume it: rows * blocks 32-byte int8
+ * blocks, then one float scale per block from a 16-byte boundary. */
+static uint64_t hip_q8_0_act_scale_offset(uint64_t rows, uint64_t blocks) {
+    return (rows * blocks * 32u + 15u) & ~15ull;
+}
+
+static int hip_q8_0_act(const ds4_gpu_tensor *t, uint64_t rows, uint64_t blocks,
+                        int8_t **xq, float **xscale) {
+    const uint64_t scale_offset = hip_q8_0_act_scale_offset(rows, blocks);
+    if (!hip_tensor_has_bytes(t, scale_offset + rows * blocks * sizeof(float))) return 0;
+    *xq = (int8_t *)t->ptr;
+    *xscale = (float *)((char *)t->ptr + scale_offset);
+    return 1;
+}
+
+extern "C" uint64_t ds4_gpu_q8_0_act_bytes(uint64_t in_dim) {
+    const uint64_t blocks = (in_dim + 31u) / 32u;
+    return hip_q8_0_act_scale_offset(1u, blocks) + blocks * sizeof(float);
+}
+
 static int hip_tensor_has_i32(const ds4_gpu_tensor *t, uint64_t elems) {
     return hip_tensor_has_elems(t, elems, sizeof(int32_t));
 }
@@ -951,6 +971,10 @@ extern "C" int ds4_gpu_tensor_read(const ds4_gpu_tensor *tensor, uint64_t offset
     return hip_ok(hipMemcpy(data, (const char *)tensor->ptr + offset, (size_t)bytes, hipMemcpyDeviceToHost), "tensor read");
 }
 
+extern "C" void* ds4_gpu_tensor_device_pointer(const ds4_gpu_tensor* tensor) {
+  return tensor ? tensor->ptr : nullptr;
+}
+
 extern "C" int ds4_gpu_tensor_snapshot_read(const ds4_gpu_tensor* tensor,
                                             uint64_t offset, void* data,
                                             uint64_t bytes) {
@@ -982,7 +1006,6 @@ extern "C" int ds4_gpu_tensor_copy(ds4_gpu_tensor *dst, uint64_t dst_offset,
 }
 
 extern "C" int ds4_gpu_begin_commands(void) { return 1; }
-extern "C" int ds4_gpu_flush_commands(void) { return hip_ok(hipDeviceSynchronize(), "flush"); }
 extern "C" int ds4_gpu_end_commands(void) {
     return hip_ok(hipDeviceSynchronize(), "end commands");
 }

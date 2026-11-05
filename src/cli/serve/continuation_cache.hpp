@@ -9,39 +9,13 @@
 #include <string_view>
 #include <vector>
 
-#include "src/ext/continuation.hpp"
+#include "src/cli/serve/continuation_types.hpp"
 
 namespace gufo::server {
-
-// The continuation bases and token id are runtime contracts (RFC step 6).
-// These aliases keep the serving spelling; cache policy below stays here.
-using ext::ContinuationInputPrefix;
-using ext::ContinuationSnapshot;
-using ext::ContinuationState;
-using ext::ContinuationToken;
-using ext::PrefixInputIdentity;
 
 enum class SnapshotEventAction : std::uint8_t {
   kRemoved,
   kSkipped,
-};
-
-enum class SnapshotEventReason : std::uint8_t {
-  kByteCapacity,
-  kEntryCapacity,
-  kExactReplacement,
-  kCaptureFailure,
-  kReservationMismatch,
-};
-
-/// Continuation boundaries take precedence over optional history/retry copies.
-/// A branch point is a continuation boundary learned where two prompts
-/// diverged; it stays a branch point after the older prompt's checkpoints go.
-enum class SnapshotPurpose : std::uint8_t {
-  kContinuation,
-  kHistory,
-  kRetry,
-  kBranchPoint,
 };
 
 /// Sanitized snapshot-retention event.
@@ -55,13 +29,6 @@ struct SnapshotEvent {
   std::size_t retained_snapshot_bytes{0};
   std::size_t reserved_snapshot_bytes{0};
   std::size_t capacity_bytes{0};
-};
-
-/// Explains a miss without exposing prompt or token contents.
-struct ContinuationLookup {
-  std::string_view miss_reason;
-  std::size_t common_prefix_tokens{0};
-  std::size_t checkpoint_tokens{0};
 };
 
 /// Bounded exact-prefix cache over opaque model continuation states.
@@ -244,6 +211,9 @@ public:
   /// optional copy may not displace a last useful checkpoint. Set before the
   /// first lease.
   void set_optional_copies_displace_idle(bool enabled) noexcept;
+  /// Set before the first lease. Unaligned prompt copies only serve exact
+  /// retries.
+  void set_prefill_alignment(std::size_t alignment) noexcept;
   [[nodiscard]] std::size_t snapshot_capacity_bytes() const noexcept;
   [[nodiscard]] std::size_t retained_snapshot_bytes() const noexcept;
   [[nodiscard]] std::size_t reserved_snapshot_bytes() const noexcept;
